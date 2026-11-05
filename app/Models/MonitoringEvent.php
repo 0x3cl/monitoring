@@ -35,6 +35,8 @@ class MonitoringEvent extends Model
         'http_status',
         'response_time_ms',
         'exception_class',
+        'client_ip',
+        'user_agent',
         'data',
     ];
 
@@ -76,5 +78,20 @@ class MonitoringEvent extends Model
     public function scopeWithin(Builder $query, int $minutes): void
     {
         $query->where('occurred_at', '>=', now()->subMinutes($minutes));
+    }
+
+    /**
+     * Events that represent a served HTTP request, which is what traffic is
+     * counted from. Excludes exceptions and SENTINEL's own status events, which
+     * are not requests the application handled.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopeTraffic(Builder $query): void
+    {
+        $query->whereIn('event_type', [
+            EventType::HttpRequest->value,
+            EventType::SlowRequest->value,
+        ]);
     }
 }

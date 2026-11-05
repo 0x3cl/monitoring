@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Admin\ApplicationController;
 use App\Http\Controllers\Admin\CredentialController;
+use App\Http\Controllers\Admin\HeartbeatController;
 use App\Http\Controllers\Admin\MonitoringEventController;
 use App\Http\Controllers\Admin\OverviewController;
 use App\Http\Controllers\Admin\ServerController;
+use App\Http\Controllers\Admin\TrafficController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\PackageRepositoryController;
 use Illuminate\Support\Facades\Route;
@@ -49,9 +51,18 @@ Route::prefix('api/admin')->name('admin.')->group(function () {
         Route::post('applications/{application}/integration/reissue', [ApplicationController::class, 'reissueIntegration'])->name('applications.integration.reissue');
         Route::get('applications/{application}/integration/download', [ApplicationController::class, 'downloadIntegration'])->name('applications.integration.download');
 
+        // Queued, not inline: an unreachable target must not hang the
+        // dashboard for the length of a probe timeout.
+        Route::post('applications/{application}/probe', [HeartbeatController::class, 'application'])->name('applications.probe');
+        Route::post('servers/{server}/probe', [HeartbeatController::class, 'server'])->name('servers.probe');
+
         Route::get('applications/{application}/credentials', [CredentialController::class, 'index'])->name('credentials.index');
         Route::post('applications/{application}/credentials', [CredentialController::class, 'store'])->name('credentials.store');
         Route::delete('credentials/{credential}', [CredentialController::class, 'destroy'])->name('credentials.destroy');
+
+        Route::get('traffic', [TrafficController::class, 'index'])->name('traffic.index');
+        Route::post('applications/{application}/traffic/refresh', [TrafficController::class, 'refresh'])
+            ->name('traffic.refresh');
 
         Route::get('events', [MonitoringEventController::class, 'index'])->name('events.index');
         Route::get('events/{event}', [MonitoringEventController::class, 'show'])->name('events.show');

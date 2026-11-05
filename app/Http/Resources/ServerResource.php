@@ -22,6 +22,14 @@ class ServerResource extends JsonResource
             'provider' => $this->provider,
             'location' => $this->location,
             'is_active' => $this->is_active,
+            'monitor_host' => $this->monitor_host,
+            'monitor_port' => $this->monitor_port,
+            'monitor_enabled' => $this->monitor_enabled,
+            'monitor_target' => $this->monitorTarget(),
+            'reachability_status' => $this->reachability_status?->value,
+            'reachability_status_label' => $this->reachability_status?->label(),
+            'last_probed_at' => $this->last_probed_at?->toIso8601String(),
+            'last_reachable_at' => $this->last_reachable_at?->toIso8601String(),
             'applications_count' => $this->whenCounted('applications'),
         ];
     }

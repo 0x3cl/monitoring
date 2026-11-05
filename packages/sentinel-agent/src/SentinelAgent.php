@@ -136,6 +136,17 @@ class SentinelAgent
         return $rate > 0 && (mt_rand() / mt_getrandmax()) <= $rate;
     }
 
+    /**
+     * The sample rate worth telling SENTINEL about: null at full capture, since
+     * a census needs no caveat.
+     */
+    public function reportedSampleRate(): ?float
+    {
+        $rate = (float) $this->config->get('sentinel.thresholds.sample_rate', 1.0);
+
+        return $rate >= 1.0 ? null : round($rate, 3);
+    }
+
     public function isExcluded(string $path): bool
     {
         $path = ltrim($path, '/');

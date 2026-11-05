@@ -7,7 +7,10 @@ use App\Enums\ConnectionStatus;
 use App\Enums\Environment;
 use App\Enums\EventType;
 use App\Enums\HealthState;
+use App\Enums\ProbeDiagnosis;
+use App\Enums\ReachabilityStatus;
 use App\Enums\Severity;
+use App\Enums\UptimeStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\IntegrationTypeResource;
 use App\Models\IntegrationType;
@@ -46,6 +49,9 @@ class OverviewController extends Controller
                 'application_statuses' => $this->describe(ApplicationStatus::cases()),
                 'connection_statuses' => $this->describe(ConnectionStatus::cases()),
                 'health_states' => $this->describe(HealthState::cases()),
+                'uptime_statuses' => $this->describe(UptimeStatus::cases()),
+                'reachability_statuses' => $this->describe(ReachabilityStatus::cases()),
+                'probe_diagnoses' => $this->describe(ProbeDiagnosis::cases()),
                 'integration_types' => IntegrationTypeResource::collection(
                     IntegrationType::query()->orderBy('name')->get()
                 )->resolve(),
@@ -54,7 +60,7 @@ class OverviewController extends Controller
     }
 
     /**
-     * @param  array<int, Severity|EventType|Environment|ApplicationStatus|ConnectionStatus|HealthState>  $cases
+     * @param  array<int, Severity|EventType|Environment|ApplicationStatus|ConnectionStatus|HealthState|UptimeStatus|ReachabilityStatus|ProbeDiagnosis>  $cases
      * @return array<int, array{value: string, label: string}>
      */
     protected function describe(array $cases): array

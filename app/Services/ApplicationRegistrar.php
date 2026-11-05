@@ -44,6 +44,19 @@ class ApplicationRegistrar
                 'health_endpoint' => $attributes['health_endpoint'] ?? null,
                 'description' => $attributes['description'] ?? null,
                 'monitoring_config' => $this->monitoringConfig($attributes['monitoring_config'] ?? []),
+                'probe_enabled' => $attributes['probe_enabled'] ?? true,
+                'probe_interval_seconds' => $attributes['probe_interval_seconds']
+                    ?? config('sentinel.heartbeat.interval_seconds'),
+                // Authenticates SENTINEL's heartbeat probe to the agent's health
+                // endpoint. Unlike the ingestion credential it is stored
+                // encrypted rather than hashed, because it has to be presented
+                // on every probe.
+                'probe_token' => $this->newProbeToken(),
+                // Staggered inside the first interval so a batch of
+                // registrations does not all come due in the same cycle.
+                'next_probe_at' => now()->addSeconds(
+                    random_int(0, max(1, (int) config('sentinel.heartbeat.interval_seconds')))
+                ),
             ]);
 
             // The direct API is always available; file and Fluent Bit sources
@@ -54,6 +67,26 @@ class ApplicationRegistrar
 
             return new RegisteredApplication($application->fresh(['server', 'integrationType']), $issued);
         });
+    }
+
+    /**
+     * Issue a fresh probe token, revoking whatever the application had.
+     *
+     * Rotated alongside the ingestion credential, so one "new key" action
+     * leaves nothing stale behind.
+     */
+    public function rotateProbeToken(Application $application): string
+    {
+        $token = $this->newProbeToken();
+
+        $application->forceFill(['probe_token' => $token])->save();
+
+        return $token;
+    }
+
+    protected function newProbeToken(): string
+    {
+        return 'probe_'.Str::random(40);
     }
 
     /**

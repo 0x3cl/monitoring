@@ -8,6 +8,8 @@ import DataState from '@/components/DataState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import StatusIndicator from '@/components/StatusIndicator.vue'
+import UptimeBadge from '@/components/UptimeBadge.vue'
+import { since } from '@/lib/uptime'
 import { useOverviewStore } from '@/stores/overview'
 
 const overview = useOverviewStore()
@@ -26,6 +28,8 @@ onUnmounted(() => clearInterval(timer))
 const applications = computed(() => overview.data?.applications)
 const events = computed(() => overview.data?.events)
 const health = computed(() => overview.data?.health ?? [])
+const uptime = computed(() => overview.data?.uptime)
+const outages = computed(() => overview.data?.outages ?? [])
 
 const windows = [
     { value: '60', label: '1 hour' },
@@ -77,6 +81,61 @@ function setWindow(value) {
                 </div>
             </section>
 
+            <section aria-label="Availability">
+                <h2 class="pb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">Availability</h2>
+                <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <StatCard label="Up" :value="uptime.up" role="good" />
+                    <StatCard label="Degraded" :value="uptime.degraded" role="warning" />
+                    <StatCard label="Maintenance" :value="uptime.maintenance" hint="Planned" />
+                    <StatCard label="Down" :value="uptime.down" role="critical" />
+                    <StatCard
+                        label="Unreachable"
+                        :value="uptime.unreachable"
+                        role="critical"
+                        hint="Server not answering"
+                    />
+                </div>
+
+                <!-- Shown only when something is actually wrong, so an
+                     all-clear dashboard stays quiet. -->
+                <div v-if="outages.length" class="mt-3 overflow-hidden rounded-lg border bg-card">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Application</TableHead>
+                                <TableHead>Heartbeat</TableHead>
+                                <TableHead>Diagnosis</TableHead>
+                                <TableHead>For</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow v-for="outage in outages" :key="outage.app_code">
+                                <TableCell>
+                                    <Button as-child variant="link" class="h-auto p-0">
+                                        <RouterLink
+                                            :to="{
+                                                name: 'applications.show',
+                                                params: { appCode: outage.app_code },
+                                            }"
+                                        >
+                                            {{ outage.name }}
+                                        </RouterLink>
+                                    </Button>
+                                    <span class="ml-2 font-mono text-xs text-muted-foreground">
+                                        {{ outage.app_code }}
+                                    </span>
+                                </TableCell>
+                                <TableCell><UptimeBadge :status="outage.uptime_status" /></TableCell>
+                                <TableCell class="text-muted-foreground">{{ outage.explanation }}</TableCell>
+                                <TableCell class="tabular-nums text-muted-foreground">
+                                    {{ since(outage.since) ?? '—' }}
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+            </section>
+
             <section aria-label="Monitoring events">
                 <h2 class="pb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
                     Monitoring events
@@ -106,6 +165,7 @@ function setWindow(value) {
                                 <TableHead>Environment</TableHead>
                                 <TableHead>Server</TableHead>
                                 <TableHead>Health</TableHead>
+                                <TableHead>Heartbeat</TableHead>
                                 <TableHead>Last event</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -133,6 +193,15 @@ function setWindow(value) {
                                         :role="healthRoles[application.health]"
                                         :label="application.health"
                                     />
+                                </TableCell>
+                                <TableCell>
+                                    <UptimeBadge :status="application.uptime_status" />
+                                    <span
+                                        v-if="application.last_probe_time_ms !== null"
+                                        class="ml-2 text-xs tabular-nums text-muted-foreground"
+                                    >
+                                        {{ application.last_probe_time_ms }}ms
+                                    </span>
                                 </TableCell>
                                 <TableCell class="tabular-nums text-muted-foreground">
                                     {{

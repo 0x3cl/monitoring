@@ -25,6 +25,7 @@ const routes = [
                 component: () => import('@/views/ApplicationDetailView.vue'),
                 props: true,
             },
+            { path: 'traffic', name: 'traffic', component: () => import('@/views/TrafficView.vue') },
             { path: 'events', name: 'events', component: () => import('@/views/EventsView.vue') },
             { path: 'servers', name: 'servers', component: () => import('@/views/ServersView.vue') },
         ],

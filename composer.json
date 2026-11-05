@@ -28,7 +28,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Tests\\": "tests/",
+            "DostPtri\\SentinelAgent\\": "packages/sentinel-agent/src/"
         }
     },
     "scripts": {

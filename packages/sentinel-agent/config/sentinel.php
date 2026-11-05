@@ -53,6 +53,59 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Health endpoint
+    |--------------------------------------------------------------------------
+    |
+    | SENTINEL probes this application from the outside to detect outages. A
+    | probe can only read status codes, so this endpoint reports what no
+    | external observer can establish: whether a 503 is a deliberate
+    | maintenance window or a fault, and whether the application has lost one
+    | of its own dependencies while still serving pages.
+    |
+    | The route stays reachable while `artisan down` is in effect - the agent
+    | exempts it from the maintenance middleware itself, so nothing in this
+    | application's bootstrap has to change. It carries no secrets.
+    |
+    */
+
+    'health' => [
+        'enabled' => env('SENTINEL_HEALTH_ENABLED', true),
+        'path' => env('SENTINEL_HEALTH_PATH', 'sentinel/health'),
+        'header' => 'X-Sentinel-Probe',
+
+        // Issued by SENTINEL at registration. Leave it empty to answer any
+        // caller, which reveals no more than Laravel's own /up route.
+        'token' => env('SENTINEL_HEALTH_TOKEN'),
+
+        'checks' => [
+            'database' => env('SENTINEL_HEALTH_CHECK_DATABASE', true),
+            'cache' => env('SENTINEL_HEALTH_CHECK_CACHE', true),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Request attributes
+    |--------------------------------------------------------------------------
+    |
+    | What each reported request carries about its caller. SENTINEL counts
+    | traffic and unique visitors from the address, and can identify the source
+    | of an attack from it.
+    |
+    | This application has the final say: switch either off and it is never sent
+    | at all, whatever SENTINEL is configured to store. The address honours this
+    | application's trusted-proxy settings, so behind a load balancer it is the
+    | real caller rather than the balancer.
+    |
+    */
+
+    'capture' => [
+        'ip' => env('SENTINEL_CAPTURE_IP', true),
+        'user_agent' => env('SENTINEL_CAPTURE_USER_AGENT', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Excluded routes
     |--------------------------------------------------------------------------
     |
@@ -66,6 +119,8 @@ return [
         'telescope/*',
         '_debugbar/*',
         'up',
+        // SENTINEL's own probe is not application traffic.
+        'sentinel/health',
     ],
 
     /*

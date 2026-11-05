@@ -40,6 +40,11 @@ class IntegrationConfigBuilder
             'features' => $config['features'],
             'thresholds' => $config['thresholds'],
             'excluded_routes' => $config['excluded_routes'],
+            // The heartbeat probe authenticates to the agent's health endpoint
+            // with its own token, since SENTINEL keeps only a hash of the
+            // ingestion credential and could never present it.
+            'health_path' => $this->healthPath(),
+            'health_token' => $application->probe_token,
         ];
     }
 
@@ -57,6 +62,8 @@ class IntegrationConfigBuilder
             'SENTINEL_KEY='.($plainTextToken ?? '<your-application-key>'),
             'SENTINEL_SLOW_REQUEST_MS='.$config['thresholds']['slow_request_ms'],
             'SENTINEL_SAMPLE_RATE='.$config['thresholds']['sample_rate'],
+            'SENTINEL_HEALTH_PATH='.$this->healthPath(),
+            'SENTINEL_HEALTH_TOKEN='.($application->probe_token ?? '<your-probe-token>'),
         ];
 
         foreach ($config['features'] as $feature => $enabled) {
@@ -80,6 +87,11 @@ class IntegrationConfigBuilder
                 'title' => 'Add the configuration',
                 'body' => $this->envSnippet($application, $plainTextToken),
                 'language' => 'ini',
+            ],
+            [
+                'title' => 'Confirm the heartbeat endpoint',
+                'body' => $this->healthCheckCommand($application),
+                'language' => 'bash',
             ],
             [
                 'title' => 'Verify the connection',
@@ -138,6 +150,34 @@ class IntegrationConfigBuilder
             'env' => $this->envSnippet($application, $plainTextToken),
             'instructions' => $this->instructionsFor($application, $plainTextToken),
         ];
+    }
+
+    /**
+     * The path the agent serves its health endpoint on.
+     *
+     * The agent exempts this route from maintenance mode itself, so SENTINEL
+     * still gets an authoritative answer while the application is down - which
+     * is exactly when it matters most.
+     */
+    protected function healthPath(): string
+    {
+        return trim((string) config('sentinel.heartbeat.default_agent_health_path', 'sentinel/health'), '/');
+    }
+
+    /**
+     * Verifies the endpoint SENTINEL's heartbeat probe will call.
+     */
+    protected function healthCheckCommand(Application $application): string
+    {
+        $header = (string) config('sentinel.heartbeat.probe_header');
+        $token = $application->probe_token ?? '<your-probe-token>';
+        $base = rtrim((string) ($application->base_url ?: 'https://your-application.example'), '/');
+
+        return implode(PHP_EOL, [
+            '# Stays reachable even while `php artisan down` is in effect.',
+            "curl -s {$base}/{$this->healthPath()} \\",
+            "  -H '{$header}: {$token}'",
+        ]);
     }
 
     /**

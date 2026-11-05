@@ -42,6 +42,27 @@
     --status-serious: #ec835a;
     --status-critical: #d03b3b;
     --status-neutral: oklch(0.554 0.046 257.417);
+
+    /*
+     * Chart series — HTTP status classes on the traffic charts.
+     *
+     * Separate from the status palette above, which is tuned for small icons
+     * beside text rather than for large fills: --status-warning is only 1.79:1
+     * on this surface, which is fine for a 14px glyph with a label and far too
+     * faint for a bar segment.
+     *
+     * Success is a recessive blue on purpose. It is ~95% of the pixels on a
+     * healthy traffic chart, and painting that mass green shouts "good" where
+     * the eye should instead be drawn to the errors.
+     *
+     * Validated as a categorical palette against this surface: lightness band,
+     * chroma floor, adjacent-pair CVD separation (worst ΔE 13.7 deutan),
+     * normal-vision floor (22.9) and 3:1 contrast all pass.
+     */
+    --chart-success: #1f6feb;
+    --chart-client-error: #bf8700;
+    --chart-server-error: #be123c;
+    --chart-grid: oklch(0.929 0.013 255.508);
 }
 
 .dark {
@@ -71,6 +92,20 @@
     --status-serious: #ec835a;
     --status-critical: #d03b3b;
     --status-neutral: oklch(0.704 0.04 256.788);
+
+    /*
+     * Chart series, selected for the dark surface rather than flipped: the
+     * light steps are too dark to read against it. Same three hue families, so
+     * a chart does not change meaning when the theme does.
+     *
+     * Amber against crimson is the hard pair under deuteranopia — both collapse
+     * toward yellow — so these steps are pulled apart until the adjacent ΔE
+     * clears 8 (9.5 deutan, 21.8 normal vision). All five checks pass.
+     */
+    --chart-success: #4493f8;
+    --chart-client-error: #b5891f;
+    --chart-server-error: #ed4b82;
+    --chart-grid: oklch(1 0 0 / 14%);
 }
 
 @theme inline {

@@ -68,21 +68,44 @@ class SentinelRequestMonitor
                 return;
             }
 
-            $this->agent->request([
+            $this->agent->request(array_filter([
                 'method' => $request->getMethod(),
                 'endpoint' => '/'.ltrim($request->path(), '/'),
                 'route' => $request->route()?->getName(),
                 'http_status' => $status,
                 'response_time_ms' => $durationMs,
                 'message' => $this->message($status),
-                'ip' => $request->ip(),
-                'user_agent' => substr((string) $request->userAgent(), 0, 255),
+                // The caller's address, which SENTINEL counts traffic by. It
+                // honours the application's own trusted-proxy configuration, so
+                // behind a load balancer this is the real client rather than
+                // the balancer. Set SENTINEL_CAPTURE_IP=false to withhold it
+                // from this application regardless of SENTINEL's settings.
+                'ip' => $this->captures('ip') ? $request->ip() : null,
+                'user_agent' => $this->captures('user_agent')
+                    ? substr((string) $request->userAgent(), 0, 255)
+                    : null,
+                // Recorded only when below 1.0, so SENTINEL knows this
+                // application's counts are a sample and can label them instead
+                // of understating its traffic.
+                'sample_rate' => $this->agent->reportedSampleRate(),
                 // Deliberately no request body, headers or session: SENTINEL
                 // must never receive credentials or personal data.
-            ], $status, $durationMs);
+            ], fn ($value) => $value !== null), $status, $durationMs);
         } catch (Throwable) {
             // Monitoring never breaks the application it monitors.
         }
+    }
+
+    /**
+     * Whether this application is willing to send a given request attribute.
+     *
+     * The monitored application gets the final say: an operator who may not
+     * store caller addresses can refuse here without needing access to
+     * SENTINEL's own configuration.
+     */
+    protected function captures(string $attribute): bool
+    {
+        return (bool) config("sentinel.capture.{$attribute}", true);
     }
 
     protected function message(int $status): string

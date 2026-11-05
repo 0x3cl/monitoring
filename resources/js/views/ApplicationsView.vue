@@ -10,6 +10,7 @@ import DataPagination from '@/components/DataPagination.vue'
 import DataState from '@/components/DataState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusIndicator from '@/components/StatusIndicator.vue'
+import UptimeBadge from '@/components/UptimeBadge.vue'
 import { useApplicationsStore } from '@/stores/applications'
 import { useMetaStore } from '@/stores/meta'
 
@@ -99,6 +100,7 @@ function filter(key, value) {
                         <TableHead>Integration</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Health</TableHead>
+                        <TableHead>Heartbeat</TableHead>
                         <TableHead class="text-right">Events</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -123,6 +125,9 @@ function filter(key, value) {
                         <TableCell class="text-muted-foreground">{{ application.status_label }}</TableCell>
                         <TableCell>
                             <StatusIndicator :role="healthRoles[application.health]" :label="application.health" />
+                        </TableCell>
+                        <TableCell>
+                            <UptimeBadge :status="application.uptime_status" :label="application.uptime_status_label" />
                         </TableCell>
                         <TableCell class="text-right tabular-nums text-muted-foreground">
                             {{ (application.events_count ?? 0).toLocaleString() }}

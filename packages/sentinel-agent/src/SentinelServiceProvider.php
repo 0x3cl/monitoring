@@ -4,15 +4,18 @@ namespace DostPtri\SentinelAgent;
 
 use DostPtri\SentinelAgent\Console\SentinelFlushCommand;
 use DostPtri\SentinelAgent\Console\SentinelTestCommand;
+use DostPtri\SentinelAgent\Http\Controllers\HealthController;
 use DostPtri\SentinelAgent\Http\Middleware\SentinelRequestMonitor;
 use DostPtri\SentinelAgent\Support\CorrelationId;
 use DostPtri\SentinelAgent\Support\Sanitizer;
 use DostPtri\SentinelAgent\Transport\EventBuffer;
 use DostPtri\SentinelAgent\Transport\HttpTransport;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
@@ -22,6 +25,8 @@ class SentinelServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/sentinel.php', 'sentinel');
+
+        $this->exemptHealthRouteFromMaintenance();
 
         $this->app->singleton(CorrelationId::class);
 
@@ -65,7 +70,50 @@ class SentinelServiceProvider extends ServiceProvider
         }
 
         $this->registerMiddleware();
+        $this->registerHealthRoute();
         $this->registerExceptionReporting();
+    }
+
+    /**
+     * Keep the health route answering while the application is down.
+     *
+     * `artisan down` would otherwise return 503 for this path too, and the one
+     * moment SENTINEL most needs an authoritative answer is exactly the moment
+     * it could not get one. The maintenance middleware exposes a static opt-out
+     * that it reads per request, so the agent can claim the exemption itself and
+     * nothing in the host application's bootstrap has to change.
+     */
+    protected function exemptHealthRouteFromMaintenance(): void
+    {
+        if (! $this->app['config']->get('sentinel.health.enabled', true)) {
+            return;
+        }
+
+        PreventRequestsDuringMaintenance::except(
+            $this->healthPath()
+        );
+    }
+
+    /**
+     * Register the health endpoint without touching the host's route files.
+     */
+    protected function registerHealthRoute(): void
+    {
+        if (! $this->app['config']->get('sentinel.health.enabled', true)) {
+            return;
+        }
+
+        try {
+            Route::get($this->healthPath(), HealthController::class)
+                ->name('sentinel.health');
+        } catch (Throwable) {
+            // Console-only applications have no router; nothing to do.
+        }
+    }
+
+    protected function healthPath(): string
+    {
+        return trim((string) $this->app['config']->get('sentinel.health.path', 'sentinel/health'), '/');
     }
 
     /**

@@ -97,6 +97,17 @@ export const useApplicationsStore = defineStore('applications', {
             return `/api/admin/applications/${appCode}/integration/download`
         },
 
+        /**
+         * Queues an immediate heartbeat probe. Returns as soon as the job is on
+         * the queue: the point of a probe is that the target may be down, so
+         * nothing here waits for a network round trip.
+         */
+        async probe(appCode) {
+            const { data } = await http.post(`applications/${appCode}/probe`)
+
+            return data
+        },
+
         async issueCredential(appCode, payload) {
             const { data } = await http.post(`applications/${appCode}/credentials`, payload)
 

@@ -20,9 +20,9 @@ class IntegrationTypeSeeder extends Seeder
                 'name' => 'Laravel',
                 'transport' => 'https',
                 'package_name' => 'dost-ptri/sentinel-agent',
-                'description' => 'Composer package providing request, exception and database monitoring.',
+                'description' => 'Composer package providing request, exception and database monitoring, plus the health endpoint SENTINEL probes.',
                 'is_available' => true,
-                'version' => '1.0.0',
+                'version' => '1.2.0',
             ],
             [
                 'slug' => 'generic',

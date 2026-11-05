@@ -7,6 +7,7 @@ use App\Enums\EventType;
 use App\Enums\Severity;
 use App\Models\Application;
 use App\Models\MonitoringEvent;
+use App\Services\Traffic\ClientAddress;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 
@@ -20,6 +21,7 @@ class EventIngestor
 {
     public function __construct(
         protected EventSanitizer $sanitizer,
+        protected ClientAddress $clientAddress,
     ) {}
 
     /**
@@ -47,6 +49,13 @@ class EventIngestor
             'http_status' => $this->intOrNull(Arr::get($data, 'http_status') ?? Arr::get($data, 'status'), 0, 65535),
             'response_time_ms' => $this->intOrNull(Arr::get($data, 'response_time_ms'), 0, 4294967295),
             'exception_class' => $this->stringOrNull(Arr::get($data, 'exception') ?? Arr::get($data, 'exception_class'), 255),
+            // Lifted out of the payload so traffic can be counted per client
+            // without scanning JSON, and masked here if configured, so an
+            // unmasked address never reaches the table.
+            'client_ip' => $this->clientAddress->normalize(
+                Arr::get($data, 'ip') ?? Arr::get($data, 'client_ip')
+            ),
+            'user_agent' => $this->stringOrNull(Arr::get($data, 'user_agent'), 255),
             'data' => $data,
         ]);
 

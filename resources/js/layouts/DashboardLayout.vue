@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { Activity, LogOut, Menu, Radio, Server, Shapes } from 'lucide-vue-next'
+import { Activity, ChartColumn, LogOut, Menu, Radio, Server, Shapes } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -19,6 +19,7 @@ const mobileOpen = ref(false)
 const links = [
     { name: 'overview', label: 'Overview', icon: Activity, exact: true },
     { name: 'applications', label: 'Applications', icon: Shapes },
+    { name: 'traffic', label: 'Traffic', icon: ChartColumn },
     { name: 'events', label: 'Events', icon: Radio },
     { name: 'servers', label: 'Servers', icon: Server },
 ]

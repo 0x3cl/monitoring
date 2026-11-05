@@ -25,6 +25,10 @@ class UpdateApplicationRequest extends FormRequest
             'server_id' => ['nullable', 'integer', Rule::exists('servers', 'id')],
             'base_url' => ['nullable', 'url', 'max:255'],
             'health_endpoint' => ['nullable', 'string', 'max:255'],
+            'probe_enabled' => ['sometimes', 'boolean'],
+            // Floor of 30s so an operator cannot accidentally configure a
+            // probe storm against their own application.
+            'probe_interval_seconds' => ['sometimes', 'integer', 'min:30', 'max:86400'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
             'monitoring_config' => ['sometimes', 'array'],

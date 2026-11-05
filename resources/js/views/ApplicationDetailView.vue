@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ArrowLeft, Download, KeyRound, RefreshCw, TriangleAlert } from 'lucide-vue-next'
+import { Activity, ArrowLeft, Download, KeyRound, RefreshCw, TriangleAlert } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,8 +12,12 @@ import DataState from '@/components/DataState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SeverityBadge from '@/components/SeverityBadge.vue'
 import StatusIndicator from '@/components/StatusIndicator.vue'
+import TrafficPanel from '@/components/TrafficPanel.vue'
+import UptimeBadge from '@/components/UptimeBadge.vue'
+import { since } from '@/lib/uptime'
 import { useApplicationsStore } from '@/stores/applications'
 import { useEventsStore } from '@/stores/events'
+import { useTrafficStore } from '@/stores/traffic'
 import { toError } from '@/lib/http'
 
 const props = defineProps({
@@ -22,6 +26,7 @@ const props = defineProps({
 
 const applications = useApplicationsStore()
 const events = useEventsStore()
+const traffic = useTrafficStore()
 
 const application = ref(null)
 const integration = ref(null)
@@ -32,6 +37,39 @@ const reissued = ref(null)
 const reissuing = ref(false)
 
 const healthRoles = { HEALTHY: 'good', WARNING: 'warning', CRITICAL: 'critical', UNKNOWN: 'neutral' }
+
+const probing = ref(false)
+const tab = ref('events')
+
+/**
+ * Traffic is fetched the first time its tab is opened rather than on page load:
+ * most visits to this page are about events or the integration.
+ */
+function openTab(value) {
+    tab.value = value
+
+    if (value === 'traffic' && traffic.appCode !== props.appCode) {
+        traffic.appCode = props.appCode
+        traffic.fetch()
+    }
+}
+
+/**
+ * Queues a probe rather than waiting for one: the target may well be the thing
+ * that is not answering, and the dashboard must not hang for a TCP timeout.
+ */
+async function probeNow() {
+    probing.value = true
+
+    try {
+        await applications.probe(props.appCode)
+        toast.success('Heartbeat probe queued. The result appears once a worker picks it up.')
+    } catch (caught) {
+        toast.error(toError(caught).message)
+    } finally {
+        probing.value = false
+    }
+}
 
 async function load() {
     loading.value = true
@@ -110,8 +148,75 @@ onMounted(load)
                 <template #actions>
                     <span class="font-mono text-sm text-muted-foreground">{{ application.app_code }}</span>
                     <StatusIndicator :role="healthRoles[application.health]" :label="application.health" />
+                    <UptimeBadge :status="application.uptime_status" :label="application.uptime_status_label" />
+                    <Button variant="outline" size="sm" :disabled="probing" @click="probeNow">
+                        <Activity />
+                        {{ probing ? 'Queueing…' : 'Check now' }}
+                    </Button>
                 </template>
             </PageHeader>
+
+            <!-- Availability, from outbound probing rather than from pushed
+                 events: this is the part that answers "is it up right now". -->
+            <Card class="mb-6">
+                <CardContent class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+                        <UptimeBadge :status="application.uptime_status" :label="application.uptime_status_label" />
+                        <span
+                            v-if="application.last_probe_time_ms !== null"
+                            class="text-sm tabular-nums text-muted-foreground"
+                        >
+                            {{ application.last_probe_time_ms }}ms
+                        </span>
+                        <span
+                            v-if="application.last_probe_status_code"
+                            class="text-sm tabular-nums text-muted-foreground"
+                        >
+                            HTTP {{ application.last_probe_status_code }}
+                        </span>
+                        <span v-if="!application.probe_enabled" class="text-sm text-muted-foreground">
+                            Probing disabled
+                        </span>
+                    </div>
+
+                    <p v-if="application.uptime_explanation" class="text-sm text-muted-foreground">
+                        {{ application.uptime_explanation }}
+                    </p>
+
+                    <dl class="grid grid-cols-2 gap-4 text-sm lg:grid-cols-4">
+                        <div>
+                            <dt class="text-xs tracking-wider text-muted-foreground uppercase">
+                                {{ application.uptime_status === 'up' ? 'Up for' : 'In this state for' }}
+                            </dt>
+                            <dd class="mt-1 tabular-nums">{{ since(application.status_changed_at) ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs tracking-wider text-muted-foreground uppercase">Last seen up</dt>
+                            <dd class="mt-1 tabular-nums">
+                                {{
+                                    application.last_up_at
+                                        ? new Date(application.last_up_at).toLocaleString()
+                                        : 'Never'
+                                }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs tracking-wider text-muted-foreground uppercase">Last probe</dt>
+                            <dd class="mt-1 tabular-nums">
+                                {{
+                                    application.last_probe_at
+                                        ? new Date(application.last_probe_at).toLocaleString()
+                                        : 'Never'
+                                }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs tracking-wider text-muted-foreground uppercase">Probe interval</dt>
+                            <dd class="mt-1 tabular-nums">{{ application.probe_interval_seconds }}s</dd>
+                        </div>
+                    </dl>
+                </CardContent>
+            </Card>
 
             <dl class="grid grid-cols-2 gap-4 pb-6 text-sm lg:grid-cols-4">
                 <div>
@@ -134,9 +239,10 @@ onMounted(load)
                 </div>
             </dl>
 
-            <Tabs default-value="events">
+            <Tabs :model-value="tab" @update:model-value="openTab">
                 <TabsList>
                     <TabsTrigger value="events">Recent events</TabsTrigger>
+                    <TabsTrigger value="traffic">Traffic</TabsTrigger>
                     <TabsTrigger value="integration">Integration</TabsTrigger>
                     <TabsTrigger value="credentials">Credentials</TabsTrigger>
                 </TabsList>
@@ -181,6 +287,16 @@ onMounted(load)
                             </Button>
                         </div>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="traffic">
+                    <TrafficPanel
+                        :report="traffic.report"
+                        :loading="traffic.loading"
+                        :error="traffic.error"
+                        @change-range="traffic.setRange"
+                        @retry="traffic.fetch()"
+                    />
                 </TabsContent>
 
                 <TabsContent value="integration">

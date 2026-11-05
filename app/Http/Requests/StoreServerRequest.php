@@ -25,6 +25,11 @@ class StoreServerRequest extends FormRequest
             'location' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
+            // Probing target. Left blank, the probe falls back to hostname and
+            // then ip_address.
+            'monitor_host' => ['nullable', 'string', 'max:255'],
+            'monitor_port' => ['sometimes', 'integer', 'min:1', 'max:65535'],
+            'monitor_enabled' => ['sometimes', 'boolean'],
         ];
     }
 }
